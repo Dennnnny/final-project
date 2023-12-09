@@ -1,15 +1,66 @@
-## Blockchain final project
+## Foundry
 
-主題： Gamefi  
+**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
-核心 寵物養成遊戲  
+Foundry consists of:
 
-主要相關合約會是： ERC721、ERC20
+-   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
+-   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
+-   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
+-   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
 
-概念：  
-1.最初會有一次的免費生成寵物   
-2.在遊戲中提供一些任務：獲得代幣  
-3.需使用代幣來升級寵物或買一些裝備：消耗代幣  
-4.也可以用代幣再購買新的寵物（會有上限）：獲得新的NFT寵物  
+## Documentation
 
----
+https://book.getfoundry.sh/
+
+## Usage
+
+### Build
+
+```shell
+$ forge build
+```
+
+### Test
+
+```shell
+$ forge test
+```
+
+### Format
+
+```shell
+$ forge fmt
+```
+
+### Gas Snapshots
+
+```shell
+$ forge snapshot
+```
+
+### Anvil
+
+```shell
+$ anvil
+```
+
+### Deploy
+
+```shell
+$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+```
+
+### Cast
+
+```shell
+$ cast <subcommand>
+```
+
+### Help
+
+```shell
+$ forge --help
+$ anvil --help
+$ cast --help
+```
