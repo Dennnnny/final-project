@@ -28,9 +28,9 @@
 
 Test cases:  
 
-1. [] 可以免費 mint 第一隻slime  
-2. [] 需要額外的 erc20Token 來mint 後續的 slime 
-3. [] 一個人一生只能 mint 三隻slime (like forever)
+1. [x] 可以免費 mint 第一隻slime  
+2. [x] 需要額外的 eth 來mint 後續的 slime 
+3. [x] 一個地址一生只能 mint 三隻slime (like forever)
 4. [] 一個人一次只能持有 3隻 slime 
 5. [] ~~只有 admin 可以調整指向位置(?) ... 所以應該要透過一些方式???~~ 還沒想好ＸＤ
 6. [] 測試把史萊姆交換給別人
