@@ -33,9 +33,39 @@ Test cases:
 3. [x] 一個地址一生只能 mint 三隻slime (like forever)
 4. [] 一個人一次只能持有 3隻 slime 
 5. [] ~~只有 admin 可以調整指向位置(?) ... 所以應該要透過一些方式???~~ 還沒想好ＸＤ
-6. [] 測試把史萊姆交換給別人
+6. [] ~~測試把史萊姆交換給別人~~
 7. [] 測試得到 道具nft 的功能
-8. [] 測試升級 : 測試有把位置重新導向到新的地方 by 升級道具
+8. [] 測試升級 : 測試有把位置重新導向到新的地方 by 升級道具 + erc20 token
 
 ---
 
+12.29 log
+
+流程說明：
+「解解任務：得到token」
+=> 在得到道具的時候 會決定道具指向到的路徑： tokenURI
+用一個 mapping 來存對應路徑的 metadata => 也紀錄這個道具可以升級的對應數字 uint256 => types 
+?? 但會與哪個合約互動呢？ 直接去 mint erc20 + upgrade_nft in Slime(ERC721)?
+
+「升級史萊姆： 使用token + 道具nft -> 把原本的史萊姆指向的地址改成新ㄉ」
+function upgrade
+=> input 是 _tokenId 要升級的史萊姆id , slimeTokenAmount 要使用的 erc20 數量, upgradeTokenId 升級道具
+-> 檢查erc20數量足夠升級
+-> 檢查tokenId 屬於 owner
+=> burn 掉 erc20 & upgrade_nft , 讓現在這個 tokenId 的結構存成新的 道具tokenId 的 types
+
+更新了 upgrade function 與 簡單先寫了 missionCompleted function 
+更新了 slime 的 struct ， 多放了 tokenNeed & level 
+目前 level 應該是還沒什麼特別用途， tokenNeed 則是用來記錄每次升級需要的 token 數量
+
+這邊會思考一下 upgradeToken 的結構要怎麼設計
+需要考量的點在於遊玩體驗 ˊ-ˋ 
+要不要讓升級 與 道具之間 會有關聯 ... 
+如果要有關聯，我就要做個機制：讓 user 不能重複使用同一個層級的升級道具來升級 
+這樣就可以做到 升級道具 對應到的 升級後位置
+如果沒有關聯：這樣 user 如果隨便 升級， 可能要處理更多的狀況
+-> 傾向做一個 有關聯式的 升級流程
+
+待完成
+[] 指向圖的部分
+[] 升級道具的等級 （也許可以直接對應到等級 對應才給升級）
