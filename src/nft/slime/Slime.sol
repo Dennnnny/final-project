@@ -15,13 +15,13 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
         uint256 types;
     }
     address ADMIN;
-    mapping(uint256 => UpgradeType) upgradeList;
+    mapping(uint256 => UpgradeType) public upgradeList;
 
     constructor() ERC721("Upgrade Sliime", "UPS") {
         ADMIN = msg.sender;
     }
 
-    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
+    function tokenURI(uint256 _tokenId) public view override(ERC721, ERC721URIStorage)  returns (string memory) {
         uint path = upgradeList[_tokenId].types;
 
         return ""; // redirect by different types
@@ -40,13 +40,37 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
 
         upgradeList[_tokenId].types = randomTypes;
     }
+
+    function doBurn (uint256 _tokenId) public {
+        _burn(_tokenId);
+    }
+
+    function getUpgradeTypes(uint256 _tokenId) public returns(uint256) {
+        return upgradeList[_tokenId].types;
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage) returns (bool) {
+      return super.supportsInterface(interfaceId);
+    }
+    
+    function _update(
+      address to,
+      uint256 tokenId,
+      address auth
+    ) internal override(ERC721, ERC721Enumerable) returns (address) {
+      return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(address account, uint128 value) internal override(ERC721, ERC721Enumerable) {
+      super._increaseBalance(account, value);
+    }
 }
 
 // this one should be an erc721
 contract Slime is ERC721Enumerable, Ownable {
     mapping(address => uint256) public mintTimes;
     mapping(uint => SlimeData) public slimeTypes;
-    uint public tokenId;
+    uint public slimeTokenId;
     uint constant MAX_SUPPLY = 1_000_000; // not sure to use this yet.
     uint constant DEFAUL_TOKEN_NEED = 1e18;
 
@@ -62,17 +86,17 @@ contract Slime is ERC721Enumerable, Ownable {
     constructor() ERC721("A Slime NFT", "SlimeT") Ownable(msg.sender) {}
 
     function mintOneSlime() public payable {
-        tokenId = totalSupply();
+        slimeTokenId = totalSupply();
         if (msg.value == 0) {
             require(mintTimes[msg.sender] == 0, "Free mint only for the very first time.");
-            _safeMint(msg.sender, tokenId);
-            slimeTypes[_tokenId].tokenNeed = DEFAUL_TOKEN_NEED;
+            _safeMint(msg.sender, slimeTokenId);
+            slimeTypes[slimeTokenId].tokenNeed = DEFAUL_TOKEN_NEED;
         } else {
             require(mintTimes[msg.sender] < 3,"You can not mint more than three times in one address.");
             // require(balanceOf(msg.sender) <= 3,"one address can have 3 at time");
 
-            _safeMint(msg.sender, tokenId);
-            slimeTypes[_tokenId].tokenNeed = DEFAUL_TOKEN_NEED;
+            _safeMint(msg.sender, slimeTokenId);
+            slimeTypes[slimeTokenId].tokenNeed = DEFAUL_TOKEN_NEED;
         }
         mintTimes[msg.sender] += 1;
     }
@@ -89,31 +113,33 @@ contract Slime is ERC721Enumerable, Ownable {
 
     function upgrade(uint256 _tokenId, uint256 slimeTokenAmount, uint256 upgradeTokenId) external {
         // 先檢查這個 user 的餘額足夠嗎
-        require(SlimeToken.balanceOf(msg.sender) >= slimeTokenAmount,"you don't have enough token, go earning some.");
+        require(slimeToken.balanceOf(msg.sender) >= slimeTokenAmount,"you don't have enough token, go earning some.");
         // 這裡要用 這個tokenId 的資料結構來判斷需要多少$$
         require(slimeTokenAmount > slimeTypes[_tokenId].tokenNeed,"you need to put more token to upgrade now.");
         // 判斷道具是不是屬於他ㄉ
-        require(msg.sender == UpgradeToken.ownerOf(upgradeTokenId),"you don't own this upgrade nft");
+        require(msg.sender == upgradeToken.ownerOf(upgradeTokenId),"you don't own this upgrade nft");
         // upgrade 這個 slime 的路徑 與 升級所需的 token 數量
         slimeTypes[_tokenId].tokenNeed = slimeTypes[_tokenId].tokenNeed * 2;
 
-        slimeTypes[_tokenId].types = upgradeToken.upgradeList(upgradeTokenId).types + slimeTypes[_tokenId].types;
+        slimeTypes[_tokenId].types = upgradeToken.getUpgradeTypes(upgradeTokenId) + slimeTypes[_tokenId].types;
 
         slimeTypes[_tokenId].level + 1;
 
         // pass 檢查後： burn and upgrade
-        UpgradeToken._burn(upgradeTokenId);
-        SlimeToken._burn(msg.sender, slimeTokenAmount);
+        upgradeToken.doBurn(upgradeTokenId);
+        slimeToken.doBurn(msg.sender, slimeTokenAmount);
     }
 
     function missionCompleted(uint256 taskLevel, uint256 slimeTokenAmount,bool getUpgradeTokenAmount) external {
         // need to think how to protect this method ???
 
         // mint a upgrade token
-        slimeToken._mint(msg.sender, slimeTokenAmount);
+        slimeToken.doMint(msg.sender, slimeTokenAmount);
 
         if (getUpgradeTokenAmount) {
             upgradeToken.doMint(msg.sender, upgradeToken.totalSupply(), taskLevel);
         }
     }
+
+   
 }
