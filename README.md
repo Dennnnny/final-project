@@ -68,4 +68,27 @@ function upgrade
 
 待完成
 [] 指向圖的部分
-[] 升級道具的等級 （也許可以直接對應到等級 對應才給升級）
+[x] 升級道具的等級 （也許可以直接對應到等級 對應才給升級）
+
+---
+
+12.31 log 
+
+[x] 升級道具的等級 （也許可以直接對應到等級 對應才給升級）
+=> upgradeToken struct 也設立一個 level
+[x] upgrade function test
+
+
+
+新增待完成： 
+[] 循環 -> 利用寵物之類的來得到token or 寶物 
+=> 寫一個 goAdventure function + returnWithProfit function 
+<!-- => 需要新增一組 mapping 對應 slimeToken 是否正在出去冒險 -> false 才能 goAdventrue -->
+=> slimeToken 是否正在出去冒險 -> true 才有機會能 returnWithProfit ,（+ 時間限制！ 最少需要幾百個 block time 才可以招回）
+<!-- => 需要新增一個 mapping 對應 slimeToken 出去的時間   -->
+=> 應該可以改記錄在 struct 裡面： 一個 bool ableToAdventure + uint256 currentBlocktime
+=> currentBlocktime 會紀錄 go adventure 當下的 blocktime 
+  -> 然後在 returnWithProfit 的時候要檢查 block.timestamp - currentBlocktime > 100 之類的
+啊 還需要在最後計算當次的冒險報酬！！ 會用 經過的時間 * 某個比例
+=> 需要多一個 常數：獲利比例 ！！ 可能是 0.01% 之類的 
+=> 多新增另一個 常數：最大報酬  變數：最大可獲得報酬 （ 這邊用一個常數 * 等級來計算 ）

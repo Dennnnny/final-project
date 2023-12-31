@@ -3,14 +3,31 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/nft/slime/Slime.sol";
+import "../src/erc20/SlimeToken.sol";
 
 contract SlimeTest is Test {
     Slime slime;
+    UpgradeToken upgradeToken;
+    SlimeToken slimeToken;
     address user = makeAddr("user");
     address mintedUser = makeAddr("mintedUser");
+    address anotherUser = makeAddr("anotherUser");
 
     function setUp() public {
         slime = new Slime();
+        upgradeToken = slime.upgradeToken();
+        slimeToken = slime.slimeToken();
+    }
+
+    function mintSlimeToUser() public {
+        // give user a tokenId=0 with level=0
+        upgradeToken.doMint(user, 0, 0);
+
+        // create a slime to user
+        vm.startPrank(user);
+        slime.mintOneSlime();
+
+        assertEq(slime.balanceOf(user), 1);
     }
 
     function testNFTBasic() public {
@@ -45,6 +62,51 @@ contract SlimeTest is Test {
             "You can not mint more than three times in one address."
         );
         slime.mintOneSlime{value: 1 ether}();
+    }
+
+    function testUpgradeSlime() public {
+        mintSlimeToUser();
+
+        // test upgrade:
+        // before upgrade 
+        assertEq(slime.tokenURI(0), "0");
+
+        deal(address(slimeToken), user, 2 ether);
+
+        assertEq(slimeToken.balanceOf(user), 2 ether);
+
+        slime.upgrade(0, 2 ether, 0);
+
+        assertEq(slime.getSlimeLevel(0), 1);
+
+        assertEq(slime.tokenURI(0), Strings.toString(upgradeToken.getUpgradeTypes(0)));
+    }
+
+    function testUpgradeWithRevert() public {
+        mintSlimeToUser();
+
+        // 
+        vm.expectRevert("you don't have enough token, go earning some.");
+        slime.upgrade(0, 2 ether, 0);
+
+        // 
+        deal(address(slimeToken), user, 2 ether);
+        vm.expectRevert("you need to put more token to upgrade now.");
+        slime.upgrade(0, 1 ether, 0);
+
+        //
+        deal(address(slimeToken), anotherUser, 2 ether);
+        vm.startPrank(anotherUser);
+        vm.expectRevert("you don't own this upgrade nft.");
+        slime.upgrade(0, 2 ether, 0);
+        vm.stopPrank();
+
+        //
+        vm.startPrank(user);
+        slime.missionCompleted(1, 2 ether, true);
+        vm.expectRevert("upgrade token level should have same level as your slime.");
+        slime.upgrade(0, 2 ether, 1);
+        
     }
 }
 

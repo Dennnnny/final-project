@@ -13,6 +13,7 @@ import "../../../src/erc20/SlimeToken.sol"; // self made token
 contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard {
     struct UpgradeType {
         uint256 types;
+        uint256 level;
     }
     address ADMIN;
     mapping(uint256 => UpgradeType) public upgradeList;
@@ -27,18 +28,25 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
         return ""; // redirect by different types
     }
 
+    /**
+     * @dev mint function to create a upgrade token for slime to upgrade
+     *
+     * @param _to address representing the owner, basically refer to msg.sender.
+     * @param _tokenId uint256, refer to this erc721 upgradeTokenId.
+     * @param taskLevel uint256, will decide tokenURI path and this token's level
+     */
     function doMint(
         address _to,
         uint256 _tokenId,
         uint256 taskLevel
     ) public nonReentrant {
-        // notes: 這邊我會再想想看 要不要這樣做 :/ 
         // use a random number alike to control the types
         uint256 randomTypes = ((gasleft() % 3) + 1) * (10 ** (taskLevel * 2));
 
         _safeMint(_to, _tokenId);
 
         upgradeList[_tokenId].types = randomTypes;
+        upgradeList[_tokenId].level = taskLevel;
     }
 
     function doBurn (uint256 _tokenId) public {
@@ -47,6 +55,10 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
 
     function getUpgradeTypes(uint256 _tokenId) public returns(uint256) {
         return upgradeList[_tokenId].types;
+    }
+
+    function getUpgradeLevel(uint256 _tokenId) public returns(uint256) {
+        return upgradeList[_tokenId].level;
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage) returns (bool) {
@@ -74,8 +86,8 @@ contract Slime is ERC721Enumerable, Ownable {
     uint constant MAX_SUPPLY = 1_000_000; // not sure to use this yet.
     uint constant DEFAUL_TOKEN_NEED = 1e18;
 
-    UpgradeToken upgradeToken = new UpgradeToken();
-    SlimeToken slimeToken = new SlimeToken();
+    UpgradeToken public upgradeToken = new UpgradeToken();
+    SlimeToken public slimeToken = new SlimeToken();
 
     struct SlimeData {
         uint types;
@@ -108,22 +120,33 @@ contract Slime is ERC721Enumerable, Ownable {
         // structure should be like: https://ipfs....../slimes/path
         // represent all king of slime in different path.
 
-        return ""; // redirect by different types
+        // return string(abi.encodePacked("https://xxx/", yourUint.toString())); // redirect by different types
+        return string(path.toString());
+    }
+
+    function getSlimeLevel(uint256 _tokenId) public view returns (uint256) {
+        return slimeTypes[_tokenId].level;
     }
 
     function upgrade(uint256 _tokenId, uint256 slimeTokenAmount, uint256 upgradeTokenId) external {
         // 先檢查這個 user 的餘額足夠嗎
         require(slimeToken.balanceOf(msg.sender) >= slimeTokenAmount,"you don't have enough token, go earning some.");
+       
         // 這裡要用 這個tokenId 的資料結構來判斷需要多少$$
         require(slimeTokenAmount > slimeTypes[_tokenId].tokenNeed,"you need to put more token to upgrade now.");
+       
         // 判斷道具是不是屬於他ㄉ
-        require(msg.sender == upgradeToken.ownerOf(upgradeTokenId),"you don't own this upgrade nft");
+        require(msg.sender == upgradeToken.ownerOf(upgradeTokenId),"you don't own this upgrade nft.");
+
+        // 判斷升級道具 level 是否跟 史萊姆的等級是相同 match
+        require(upgradeToken.getUpgradeLevel(upgradeTokenId) == slimeTypes[_tokenId].level ,"upgrade token level should have same level as your slime.");
+
         // upgrade 這個 slime 的路徑 與 升級所需的 token 數量
         slimeTypes[_tokenId].tokenNeed = slimeTypes[_tokenId].tokenNeed * 2;
 
         slimeTypes[_tokenId].types = upgradeToken.getUpgradeTypes(upgradeTokenId) + slimeTypes[_tokenId].types;
 
-        slimeTypes[_tokenId].level + 1;
+        slimeTypes[_tokenId].level = slimeTypes[_tokenId].level + 1;
 
         // pass 檢查後： burn and upgrade
         upgradeToken.doBurn(upgradeTokenId);
