@@ -67,7 +67,7 @@ function upgrade
 -> 傾向做一個 有關聯式的 升級流程
 
 待完成
-[] 指向圖的部分
+[x] 指向圖的部分
 [x] 升級道具的等級 （也許可以直接對應到等級 對應才給升級）
 
 ---
@@ -78,7 +78,9 @@ function upgrade
 => upgradeToken struct 也設立一個 level
 [x] upgrade function test
 
-
+1.1 log
+[x] 指向圖的部分
+把圖存到 pinata 上。
 
 新增待完成： 
 [] 循環 -> 利用寵物之類的來得到token or 寶物 

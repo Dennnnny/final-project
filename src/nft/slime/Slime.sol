@@ -23,9 +23,9 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
     }
 
     function tokenURI(uint256 _tokenId) public view override(ERC721, ERC721URIStorage)  returns (string memory) {
-        uint path = upgradeList[_tokenId].types;
+        uint path = this.getUpgradeTypes(_tokenId);
 
-        return ""; // redirect by different types
+        return string(abi.encodePacked("https://ipfs.io/ipfs/QmQ8H1KoFRQDe12VHerrf9GmGdcpyMmuKcoAERefnm6ZXm/", Strings.toString(path), ".png" )); // redirect by different types
     }
 
     /**
@@ -53,11 +53,11 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
         _burn(_tokenId);
     }
 
-    function getUpgradeTypes(uint256 _tokenId) public returns(uint256) {
+    function getUpgradeTypes(uint256 _tokenId) public view returns(uint256) {
         return upgradeList[_tokenId].types;
     }
 
-    function getUpgradeLevel(uint256 _tokenId) public returns(uint256) {
+    function getUpgradeLevel(uint256 _tokenId) public view returns(uint256) {
         return upgradeList[_tokenId].level;
     }
 
@@ -114,18 +114,17 @@ contract Slime is ERC721Enumerable, Ownable {
     }
 
     function tokenURI(uint256 _tokenId) public view override returns (string memory) {
-        uint path = slimeTypes[_tokenId].types;
+        uint path = this.getSlimeTypes(_tokenId);
 
-        // I'm going to create a metadata in pinata of ipfs
-        // structure should be like: https://ipfs....../slimes/path
-        // represent all king of slime in different path.
-
-        // return string(abi.encodePacked("https://xxx/", yourUint.toString())); // redirect by different types
-        return string(path.toString());
+        return string(abi.encodePacked("https://ipfs.io/ipfs/QmUFa7YuvhFDEB1oxUgBUVvsFLrC25xASwBZmpF5cEQzxX/", Strings.toString(path), ".png")); // redirect by different types
     }
 
     function getSlimeLevel(uint256 _tokenId) public view returns (uint256) {
         return slimeTypes[_tokenId].level;
+    }
+
+    function getSlimeTypes(uint256 _tokenId) public view returns (uint256) {
+        return slimeTypes[_tokenId].types;
     }
 
     function upgrade(uint256 _tokenId, uint256 slimeTokenAmount, uint256 upgradeTokenId) external {

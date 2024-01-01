@@ -69,7 +69,7 @@ contract SlimeTest is Test {
 
         // test upgrade:
         // before upgrade 
-        assertEq(slime.tokenURI(0), "0");
+        assertEq(slime.tokenURI(0), "https://ipfs.io/ipfs/QmUFa7YuvhFDEB1oxUgBUVvsFLrC25xASwBZmpF5cEQzxX/0.png");
 
         deal(address(slimeToken), user, 2 ether);
 
@@ -79,7 +79,7 @@ contract SlimeTest is Test {
 
         assertEq(slime.getSlimeLevel(0), 1);
 
-        assertEq(slime.tokenURI(0), Strings.toString(upgradeToken.getUpgradeTypes(0)));
+        assertEq(slime.tokenURI(0), string(abi.encodePacked("https://ipfs.io/ipfs/QmUFa7YuvhFDEB1oxUgBUVvsFLrC25xASwBZmpF5cEQzxX/", Strings.toString(upgradeToken.getUpgradeTypes(0)), ".png")));
     }
 
     function testUpgradeWithRevert() public {
