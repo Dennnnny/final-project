@@ -7,84 +7,18 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol"; /
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; // ReentrancyGuard
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../../src/erc20/SlimeToken.sol"; // self made token
-
-// I think I should make a factory to create erc721
-// I think this factory will use to produce some upgrade nft.
-contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard {
-    struct UpgradeType {
-        uint256 types;
-        uint256 level;
-    }
-    address ADMIN;
-    mapping(uint256 => UpgradeType) public upgradeList;
-
-    constructor() ERC721("Upgrade Sliime", "UPS") {
-        ADMIN = msg.sender;
-    }
-
-    function tokenURI(uint256 _tokenId) public view override(ERC721, ERC721URIStorage)  returns (string memory) {
-        uint path = this.getUpgradeTypes(_tokenId);
-
-        return string(abi.encodePacked("https://ipfs.io/ipfs/QmQ8H1KoFRQDe12VHerrf9GmGdcpyMmuKcoAERefnm6ZXm/", Strings.toString(path), ".png" )); // redirect by different types
-    }
-
-    /**
-     * @dev mint function to create a upgrade token for slime to upgrade
-     *
-     * @param _to address representing the owner, basically refer to msg.sender.
-     * @param _tokenId uint256, refer to this erc721 upgradeTokenId.
-     * @param taskLevel uint256, will decide tokenURI path and this token's level
-     */
-    function doMint(
-        address _to,
-        uint256 _tokenId,
-        uint256 taskLevel
-    ) public nonReentrant {
-        // use a random number alike to control the types
-        uint256 randomTypes = ((gasleft() % 3) + 1) * (10 ** (taskLevel * 2));
-
-        _safeMint(_to, _tokenId);
-
-        upgradeList[_tokenId].types = randomTypes;
-        upgradeList[_tokenId].level = taskLevel;
-    }
-
-    function doBurn (uint256 _tokenId) public {
-        _burn(_tokenId);
-    }
-
-    function getUpgradeTypes(uint256 _tokenId) public view returns(uint256) {
-        return upgradeList[_tokenId].types;
-    }
-
-    function getUpgradeLevel(uint256 _tokenId) public view returns(uint256) {
-        return upgradeList[_tokenId].level;
-    }
-
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Enumerable, ERC721URIStorage) returns (bool) {
-      return super.supportsInterface(interfaceId);
-    }
-    
-    function _update(
-      address to,
-      uint256 tokenId,
-      address auth
-    ) internal override(ERC721, ERC721Enumerable) returns (address) {
-      return super._update(to, tokenId, auth);
-    }
-
-    function _increaseBalance(address account, uint128 value) internal override(ERC721, ERC721Enumerable) {
-      super._increaseBalance(account, value);
-    }
-}
+import "../upgrade/Upgrade.sol"; // upgrade nft
 
 // this one should be an erc721
-contract Slime is ERC721Enumerable, Ownable {
+contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
     mapping(address => uint256) public mintTimes;
     mapping(uint => SlimeData) public slimeTypes;
+    mapping(address => Task) public slimeTasks;
     uint public slimeTokenId;
-    uint constant MAX_SUPPLY = 1_000_000; // not sure to use this yet.
     uint constant DEFAUL_TOKEN_NEED = 1e18;
+    uint constant MINIMUM_BLOCK_TIME = 120; // 120 = 30min
+    uint constant PROFIT_RATE = 1e15;
+    uint constant MAX_PROFIT_PER_TIME = 1e18;
 
     UpgradeToken public upgradeToken = new UpgradeToken();
     SlimeToken public slimeToken = new SlimeToken();
@@ -95,21 +29,30 @@ contract Slime is ERC721Enumerable, Ownable {
         uint level;
     }
 
+    struct Task {
+        bool ableToAdventure;
+        uint leaveAt;
+    }
+
+    modifier isSlimeOwner(uint256 _tokenId) {
+        require(ownerOf(_tokenId) == msg.sender);
+        _;
+    }
+
     constructor() ERC721("A Slime NFT", "SlimeT") Ownable(msg.sender) {}
 
-    function mintOneSlime() public payable {
+    function mintOneSlime() public payable nonReentrant {
         slimeTokenId = totalSupply();
         if (msg.value == 0) {
             require(mintTimes[msg.sender] == 0, "Free mint only for the very first time.");
             _safeMint(msg.sender, slimeTokenId);
-            slimeTypes[slimeTokenId].tokenNeed = DEFAUL_TOKEN_NEED;
         } else {
             require(mintTimes[msg.sender] < 3,"You can not mint more than three times in one address.");
             // require(balanceOf(msg.sender) <= 3,"one address can have 3 at time");
 
             _safeMint(msg.sender, slimeTokenId);
-            slimeTypes[slimeTokenId].tokenNeed = DEFAUL_TOKEN_NEED;
         }
+        slimeTypes[slimeTokenId] = SlimeData(0, DEFAUL_TOKEN_NEED, 0, true, 0);
         mintTimes[msg.sender] += 1;
     }
 
@@ -127,7 +70,15 @@ contract Slime is ERC721Enumerable, Ownable {
         return slimeTypes[_tokenId].types;
     }
 
-    function upgrade(uint256 _tokenId, uint256 slimeTokenAmount, uint256 upgradeTokenId) external {
+    function canSlimeGoAdventrue() public view returns (uint256) {
+        return slimeTasks[msg.sender].ableToAdventure;
+    }
+
+    function getSlimeLeaveAt() public view returns (uint256) {
+        return slimeTasks[msg.sender].leaveAt;
+    }
+
+    function upgrade(uint256 _tokenId, uint256 slimeTokenAmount, uint256 upgradeTokenId) isSlimeOwner(_tokenId) external {
         // 先檢查這個 user 的餘額足夠嗎
         require(slimeToken.balanceOf(msg.sender) >= slimeTokenAmount,"you don't have enough token, go earning some.");
        
@@ -138,7 +89,7 @@ contract Slime is ERC721Enumerable, Ownable {
         require(msg.sender == upgradeToken.ownerOf(upgradeTokenId),"you don't own this upgrade nft.");
 
         // 判斷升級道具 level 是否跟 史萊姆的等級是相同 match
-        require(upgradeToken.getUpgradeLevel(upgradeTokenId) == slimeTypes[_tokenId].level ,"upgrade token level should have same level as your slime.");
+        require(upgradeToken.getUpgradeLevel(upgradeTokenId) == getSlimeLevel(_tokenId) ,"upgrade token level should have same level as your slime.");
 
         // upgrade 這個 slime 的路徑 與 升級所需的 token 數量
         slimeTypes[_tokenId].tokenNeed = slimeTypes[_tokenId].tokenNeed * 2;
@@ -152,15 +103,34 @@ contract Slime is ERC721Enumerable, Ownable {
         slimeToken.doBurn(msg.sender, slimeTokenAmount);
     }
 
-    function missionCompleted(uint256 taskLevel, uint256 slimeTokenAmount,bool getUpgradeTokenAmount) external {
-        // need to think how to protect this method ???
-
+    function claimRewards(uint256 slimeTokenAmount, uint256 taskLevel, bool getUpgradeTokenAmount) external {
         // mint a upgrade token
         slimeToken.doMint(msg.sender, slimeTokenAmount);
 
         if (getUpgradeTokenAmount) {
             upgradeToken.doMint(msg.sender, upgradeToken.totalSupply(), taskLevel);
         }
+    }
+
+    function goAdventrue(uint256 _tokenId) public {
+        require(canSlimeGoAdventrue(),"you can not let your slime go out.");
+
+        slimeTasks[msg.sender].ableToAdventure = false;
+        slimeTasks[msg.sender].leaveAt = block.timestamp;
+    }
+
+    function returnWithProfit(uint256 _tokenId) public {
+        require(!canSlimeGoAdventrue(),"your slimes are not going out.");
+
+        require(block.timestamp > getSlimeLeaveAt() + MINIMUM_BLOCK_TIME, "slime will go out at least 30 minutes.");
+
+        uint256 times = block.timestamp - getSlimeLeaveAt();
+
+        uint256 originProfit = times * PROFIT_RATE * balanceOf(msg.sender);
+
+        uint256 profitAmount = originProfit > MAX_PROFIT_PER_TIME ? MAX_PROFIT_PER_TIME : originProfit;
+
+        claimRewards(profitAmount, 0, false);
     }
 
    

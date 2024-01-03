@@ -82,15 +82,20 @@ function upgrade
 [x] 指向圖的部分
 把圖存到 pinata 上。
 
-新增待完成： 
-[] 循環 -> 利用寵物之類的來得到token or 寶物 
-=> 寫一個 goAdventure function + returnWithProfit function 
-<!-- => 需要新增一組 mapping 對應 slimeToken 是否正在出去冒險 -> false 才能 goAdventrue -->
-=> slimeToken 是否正在出去冒險 -> true 才有機會能 returnWithProfit ,（+ 時間限制！ 最少需要幾百個 block time 才可以招回）
-<!-- => 需要新增一個 mapping 對應 slimeToken 出去的時間   -->
-=> 應該可以改記錄在 struct 裡面： 一個 bool ableToAdventure + uint256 currentBlocktime
-=> currentBlocktime 會紀錄 go adventure 當下的 blocktime 
-  -> 然後在 returnWithProfit 的時候要檢查 block.timestamp - currentBlocktime > 100 之類的
-啊 還需要在最後計算當次的冒險報酬！！ 會用 經過的時間 * 某個比例
-=> 需要多一個 常數：獲利比例 ！！ 可能是 0.01% 之類的 
-=> 多新增另一個 常數：最大報酬  變數：最大可獲得報酬 （ 這邊用一個常數 * 等級來計算 ）
+[x] 循環 -> 利用寵物之類的來得到token or 寶物 
+=> [x]寫一個 goAdventure function + returnWithProfit function 
+=> 目前僅先讓這個 goAdventrue 可以得到 slimetoken 作為回報
+=> 用 經過的時間 * 一個常數(0.001 ether) * 目前擁有的 slime nft 數量 = profit amount
+=> 但暫定有個上限值 1 ether, 並且需要經過 30min 才可以觸發 returnWithProfit function 
+
+待完成： 
+[] Event 事件：
+=> 所有的 create/ mint/ burn/ transfer(?) 都補上一個 emit event
+
+[] 任務機制：
+=> 設計一兩個任務去解！ 
+=> 新增一個新的 mapping 來做任務
+
+[] 補齊 test cases
+
+[] 產出簡報
