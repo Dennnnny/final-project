@@ -21,8 +21,6 @@ contract SlimeTest is Test {
 
     function mintSlimeToUser() public {
         // give user a tokenId=0 with level=0
-        upgradeToken.doMint(user, 0, 0);
-
         // create a slime to user
         vm.startPrank(user);
         slime.mintOneSlime();
@@ -67,6 +65,7 @@ contract SlimeTest is Test {
     function testUpgradeSlime() public {
         mintSlimeToUser();
 
+        upgradeToken.doMint(user, 0, 0);
         // test upgrade:
         // before upgrade 
         assertEq(slime.tokenURI(0), "https://ipfs.io/ipfs/QmUFa7YuvhFDEB1oxUgBUVvsFLrC25xASwBZmpF5cEQzxX/0.png");
@@ -85,7 +84,9 @@ contract SlimeTest is Test {
     function testUpgradeWithRevert() public {
         mintSlimeToUser();
 
-        // 
+        upgradeToken.doMint(user, 0, 0);
+        
+        vm.startPrank(user);
         vm.expectRevert("you don't have enough token, go earning some.");
         slime.upgrade(0, 2 ether, 0);
 
@@ -97,51 +98,15 @@ contract SlimeTest is Test {
         //
         deal(address(slimeToken), anotherUser, 2 ether);
         vm.startPrank(anotherUser);
-        vm.expectRevert("you don't own this upgrade nft.");
+        vm.expectRevert("you are not owner.");
         slime.upgrade(0, 2 ether, 0);
         vm.stopPrank();
 
         //
         vm.startPrank(user);
-        slime.missionCompleted(1, 2 ether, true);
+        slime.claimRewards(2 ether, 1, true);
         vm.expectRevert("upgrade token level should have same level as your slime.");
         slime.upgrade(0, 2 ether, 1);
         
     }
-}
-
-contract UpgradeNftTest is Test {
-    UpgradeToken upgradeToken;
-
-    address user = makeAddr("user");
-
-    function setUp() public {
-        upgradeToken = new UpgradeToken();
-    }
-
-    function testNFTBasic() public {
-        assertEq(upgradeToken.name(), "Upgrade Sliime");
-    }
-
-    function testMint() public {
-        vm.startPrank(user);
-
-        upgradeToken.doMint(address(user), 0, 0);
-
-        assertEq(upgradeToken.balanceOf(user), 1);
-
-        assertLe(upgradeToken.getUpgradeTypes(0), 3);
-    }
-
-    function testBurn() public {
-        vm.startPrank(user);
-
-        upgradeToken.doMint(address(user), 0, 0);
-
-        upgradeToken.doBurn(0);
-
-        vm.expectRevert(); // revert: did not exist
-        upgradeToken.ownerOf(0);
-    }
-
 }

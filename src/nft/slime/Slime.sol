@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../../src/erc20/SlimeToken.sol"; // self made token
 import "../upgrade/Upgrade.sol"; // upgrade nft
 
-// this one should be an erc721
 contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
     mapping(address => uint256) public mintTimes;
     mapping(uint => SlimeData) public slimeTypes;
@@ -19,6 +18,8 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
     uint constant MINIMUM_BLOCK_TIME = 120; // 120 = 30min
     uint constant PROFIT_RATE = 1e15;
     uint constant MAX_PROFIT_PER_TIME = 1e18;
+
+    mapping(uint256 => mapping(address => bool)) public attendedMission;
 
     UpgradeToken public upgradeToken = new UpgradeToken();
     SlimeToken public slimeToken = new SlimeToken();
@@ -35,7 +36,7 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     modifier isSlimeOwner(uint256 _tokenId) {
-        require(ownerOf(_tokenId) == msg.sender);
+        require(ownerOf(_tokenId) == msg.sender,"you are not owner.");
         _;
     }
 
@@ -52,7 +53,7 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
 
             _safeMint(msg.sender, slimeTokenId);
         }
-        slimeTypes[slimeTokenId] = SlimeData(0, DEFAUL_TOKEN_NEED, 0, true, 0);
+        slimeTypes[slimeTokenId] = SlimeData(0, DEFAUL_TOKEN_NEED, 0);
         mintTimes[msg.sender] += 1;
     }
 
@@ -70,7 +71,7 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
         return slimeTypes[_tokenId].types;
     }
 
-    function canSlimeGoAdventrue() public view returns (uint256) {
+    function canSlimeGoAdventrue() public view returns (bool) {
         return slimeTasks[msg.sender].ableToAdventure;
     }
 
@@ -86,7 +87,7 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
         require(slimeTokenAmount > slimeTypes[_tokenId].tokenNeed,"you need to put more token to upgrade now.");
        
         // 判斷道具是不是屬於他ㄉ
-        require(msg.sender == upgradeToken.ownerOf(upgradeTokenId),"you don't own this upgrade nft.");
+        require(msg.sender == upgradeToken.ownerOf(_tokenId),"you don't own this upgrade nft.");
 
         // 判斷升級道具 level 是否跟 史萊姆的等級是相同 match
         require(upgradeToken.getUpgradeLevel(upgradeTokenId) == getSlimeLevel(_tokenId) ,"upgrade token level should have same level as your slime.");
@@ -130,8 +131,16 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
 
         uint256 profitAmount = originProfit > MAX_PROFIT_PER_TIME ? MAX_PROFIT_PER_TIME : originProfit;
 
-        claimRewards(profitAmount, 0, false);
+        slimeToken.doMint(msg.sender, profitAmount);
     }
+
+    // function attendMission(uint256 missionId) public {
+    //     attendedMission[missionId][msg.sender] = true;
+    // }
+
+    // function completeMission1() public {
+    //     // require ();
+    // }
 
    
 }
