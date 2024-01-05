@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; // ReentrancyGuard
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../../src/erc20/SlimeToken.sol"; // self made token
 import "../upgrade/Upgrade.sol"; // upgrade nft
+import "../../Mission.sol";
 
 contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
     mapping(address => uint256) public mintTimes;
@@ -23,6 +24,7 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     UpgradeToken public upgradeToken = new UpgradeToken();
     SlimeToken public slimeToken = new SlimeToken();
+    Mission public mission;
 
     struct SlimeData {
         uint types;
@@ -40,7 +42,9 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor() ERC721("A Slime NFT", "SlimeT") Ownable(msg.sender) {}
+    constructor() ERC721("A Slime NFT", "SlimeT") Ownable(msg.sender) {
+        mission = new Mission(address(this));
+    }
 
     function mintOneSlime() public payable nonReentrant {
         slimeTokenId = totalSupply();
@@ -104,7 +108,7 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
         slimeToken.doBurn(msg.sender, slimeTokenAmount);
     }
 
-    function claimRewards(uint256 slimeTokenAmount, uint256 taskLevel, bool getUpgradeTokenAmount) external {
+    function claimRewards(uint256 slimeTokenAmount, uint256 taskLevel, bool getUpgradeTokenAmount) internal {
         // mint a upgrade token
         slimeToken.doMint(msg.sender, slimeTokenAmount);
 
@@ -134,13 +138,16 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
         slimeToken.doMint(msg.sender, profitAmount);
     }
 
-    // function attendMission(uint256 missionId) public {
-    //     attendedMission[missionId][msg.sender] = true;
-    // }
+    function attendMission(uint256 _missionId) public {
+        require(!mission.checkUserAttended(_missionId), "you already attend this mission.");
+        mission.attendMission(_missionId);
+    }
 
-    // function completeMission1() public {
-    //     // require ();
-    // }
+    function completeMission(uint256 _missionId, uint256 _slimeTokenId) public {
+        (bool completed, uint256 rewardLevel) = mission.checkMissionCompleted(_missionId, _slimeTokenId);
+        require(completed);
+        // claimRewards();
+    }
 
    
 }

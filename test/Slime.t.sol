@@ -85,7 +85,7 @@ contract SlimeTest is Test {
         mintSlimeToUser();
 
         upgradeToken.doMint(user, 0, 0);
-        
+
         vm.startPrank(user);
         vm.expectRevert("you don't have enough token, go earning some.");
         slime.upgrade(0, 2 ether, 0);
@@ -101,12 +101,6 @@ contract SlimeTest is Test {
         vm.expectRevert("you are not owner.");
         slime.upgrade(0, 2 ether, 0);
         vm.stopPrank();
-
-        //
-        vm.startPrank(user);
-        slime.claimRewards(2 ether, 1, true);
-        vm.expectRevert("upgrade token level should have same level as your slime.");
-        slime.upgrade(0, 2 ether, 1);
         
     }
 }
