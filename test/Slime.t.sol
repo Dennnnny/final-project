@@ -103,4 +103,11 @@ contract SlimeTest is Test {
         vm.stopPrank();
         
     }
+    function slimeGoAdventrue() public {
+        
+    }
+    
+    function testGoAdventrue() public {
+        
+    }
 }
