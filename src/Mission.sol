@@ -32,18 +32,17 @@ contract Mission {
     return missionList.length;
   }
 
-  function checkUserAttended(uint256 _missionId) public returns (bool) {
-    return attendMissionList[_missionId][msg.sender];
+  function checkUserAttended(uint256 _missionId, address attender) public returns (bool) {
+    return attendMissionList[_missionId][attender];
   }
 
-  function attendMission(uint256 _missionId) public {
+  function attendMission(uint256 _missionId, address attender) public {
     require(_missionId < CURRENT_MISSION_AMOUNT, "missionId is not exist yet.");
-    attendMissionList[_missionId][msg.sender] = true;
+    attendMissionList[_missionId][attender] = true;
   } 
 
-  function checkMissionCompleted(uint256 _missionId, uint256 _slimeTokenId) public returns (bool, uint256) {
-    require(attendMissionList[_missionId][msg.sender], "you need to attend mission first.");
-    require(_missionId < CURRENT_MISSION_AMOUNT, "missionId is not exist yet.");
+  function checkMissionCompleted( address attender, uint256 _missionId, uint256 _slimeTokenId) public returns (bool, uint256) {
+    require(attendMissionList[_missionId][attender], "you need to attend mission first.");
     MissionCate missionCategory = missionList[_missionId].cate;
 
     if(missionCategory == MissionCate.Level) {
@@ -51,7 +50,7 @@ contract Mission {
       return (true, missionList[_missionId].rewardLevel);
     }
     if(missionCategory == MissionCate.Amount){
-      require(Slime(slime).balanceOf(msg.sender) >= missionList[_missionId].completedCondition, "slime's amount is not enough.");
+      require(Slime(slime).balanceOf(attender) >= missionList[_missionId].completedCondition, "slime's amount is not enough.");
       return (true, missionList[_missionId].rewardLevel);
     }
   }

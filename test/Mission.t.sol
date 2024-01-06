@@ -21,8 +21,9 @@ contract MissionTest is Test {
 
     function testUserAttendMission() public {
       vm.startPrank(user);
-      mission.attendMission(0);
-      assertEq(mission.checkUserAttended(0), true);
+      mission.attendMission(0, user);
+      assertEq(mission.checkUserAttended(0, user), true);
+      vm.stopPrank();
     }
 
     function testUserAttendMission_1_AndCompleted() public {
@@ -32,31 +33,33 @@ contract MissionTest is Test {
       assertEq(slime.balanceOf(user), 1);
 
       vm.expectRevert("you need to attend mission first.");
-      mission.checkMissionCompleted(1, 0);
+      mission.checkMissionCompleted(user, 1, 0);
 
-      mission.attendMission(1);
-      (bool completed, uint256 rewardLevel) = mission.checkMissionCompleted(1, 0);
+      mission.attendMission(1, user);
+      (bool completed, uint256 rewardLevel) = mission.checkMissionCompleted(user, 1, 0);
 
       assertEq(completed, true);
       assertEq(rewardLevel, 1);
+      vm.stopPrank();
     }
 
     function testCheckMissionCompletedRevert() public {
       vm.startPrank(user);
       {
-        mission.attendMission(0);
+        mission.attendMission(0, user);
         vm.expectRevert("slime's level is not enough.");
-        (bool completed, uint256 rewardLevel) = mission.checkMissionCompleted(0, 0);
+        (bool completed, uint256 rewardLevel) = mission.checkMissionCompleted(user, 0, 0);
       }
       {
-        mission.attendMission(1);
+        mission.attendMission(1, user);
         vm.expectRevert("slime's amount is not enough.");
-        (bool completed, uint256 rewardLevel) = mission.checkMissionCompleted(1, 0);
+        (bool completed, uint256 rewardLevel) = mission.checkMissionCompleted(user, 1, 0);
       }
       {
         vm.expectRevert("missionId is not exist yet.");
-        mission.attendMission(2);
+        mission.attendMission(2, user);
       }
+      vm.stopPrank();
     }
 
 

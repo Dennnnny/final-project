@@ -8,8 +8,6 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; // ReentrancyGuard
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../../src/erc20/SlimeToken.sol"; // self made token
 
-// I think I should make a factory to create erc721
-// I think this factory will use to produce some upgrade nft.
 contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard {
     struct UpgradeType {
         uint256 types;
@@ -18,8 +16,13 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
     address ADMIN;
     mapping(uint256 => UpgradeType) public upgradeList;
 
-    constructor() ERC721("Upgrade Sliime", "UPS") {
-        ADMIN = msg.sender;
+    constructor(address _addr) ERC721("Upgrade Sliime", "UPS") {
+        ADMIN = _addr;
+    }
+
+    modifier only_admin {
+        require(msg.sender == ADMIN);
+        _;
     }
 
     function tokenURI(uint256 _tokenId) public view override(ERC721, ERC721URIStorage)  returns (string memory) {
@@ -35,9 +38,9 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
      * @param _tokenId uint256, refer to this erc721 upgradeTokenId.
      * @param taskLevel uint256, will decide tokenURI path and this token's level
      */
-    function doMint(address _to, uint256 _tokenId, uint256 taskLevel) public nonReentrant {
+    function doMint(address _to, uint256 _tokenId, uint256 taskLevel) public nonReentrant only_admin {
         // use a random number alike to control the types
-        uint256 randomTypes = ((gasleft() % 3) + 1) * (10 ** (taskLevel * 2));
+        uint256 randomTypes = ((gasleft() % 3) + 1) * (10 ** (taskLevel));
 
         _safeMint(_to, _tokenId);
 
@@ -48,7 +51,7 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
     /**
      * @dev burn the token
      */
-    function doBurn (uint256 _tokenId) public {
+    function doBurn (uint256 _tokenId) public only_admin {
         _burn(_tokenId);
     }
 

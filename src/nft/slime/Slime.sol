@@ -15,6 +15,7 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
     mapping(uint => SlimeData) public slimeTypes;
     mapping(address => Task) public slimeTasks;
     uint public slimeTokenId;
+    uint constant MINT_FEE = 1e15;
     uint constant DEFAUL_TOKEN_NEED = 1e18;
     uint constant MINIMUM_BLOCK_TIME = 120; // 120 = 30min
     uint constant PROFIT_RATE = 1e15;
@@ -22,9 +23,9 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     mapping(uint256 => mapping(address => bool)) public attendedMission;
 
-    UpgradeToken public upgradeToken = new UpgradeToken();
-    SlimeToken public slimeToken = new SlimeToken();
-    Mission public mission;
+    UpgradeToken public upgradeToken = new UpgradeToken(address(this));
+    SlimeToken public slimeToken = new SlimeToken(address(this));
+    Mission public mission = new Mission(address(this));
 
     struct SlimeData {
         uint types;
@@ -33,7 +34,7 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     struct Task {
-        bool ableToAdventure;
+        bool isOnTheAdventure;
         uint leaveAt;
     }
 
@@ -42,9 +43,7 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor() ERC721("A Slime NFT", "SlimeT") Ownable(msg.sender) {
-        mission = new Mission(address(this));
-    }
+    constructor() ERC721("A Slime NFT", "SlimeT") Ownable(msg.sender) {}
 
     function mintOneSlime() public payable nonReentrant {
         slimeTokenId = totalSupply();
@@ -52,8 +51,8 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
             require(mintTimes[msg.sender] == 0, "Free mint only for the very first time.");
             _safeMint(msg.sender, slimeTokenId);
         } else {
+            require(msg.value >= MINT_FEE, "at least 0.001 ether to mint new one.");
             require(mintTimes[msg.sender] < 3,"You can not mint more than three times in one address.");
-            // require(balanceOf(msg.sender) <= 3,"one address can have 3 at time");
 
             _safeMint(msg.sender, slimeTokenId);
         }
@@ -75,8 +74,8 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
         return slimeTypes[_tokenId].types;
     }
 
-    function canSlimeGoAdventrue() public view returns (bool) {
-        return slimeTasks[msg.sender].ableToAdventure;
+    function canSlimeGoAdventure() public view returns (bool) {
+        return !slimeTasks[msg.sender].isOnTheAdventure;
     }
 
     function getSlimeLeaveAt() public view returns (uint256) {
@@ -85,13 +84,13 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
 
     function upgrade(uint256 _tokenId, uint256 slimeTokenAmount, uint256 upgradeTokenId) isSlimeOwner(_tokenId) external {
         // 先檢查這個 user 的餘額足夠嗎
-        require(slimeToken.balanceOf(msg.sender) >= slimeTokenAmount,"you don't have enough token, go earning some.");
+        require(slimeToken.balanceOf(msg.sender) >= slimeTokenAmount, "you don't have enough token, go earning some.");
        
         // 這裡要用 這個tokenId 的資料結構來判斷需要多少$$
-        require(slimeTokenAmount > slimeTypes[_tokenId].tokenNeed,"you need to put more token to upgrade now.");
+        require(slimeTokenAmount > slimeTypes[_tokenId].tokenNeed, "you need to put more token to upgrade now.");
        
         // 判斷道具是不是屬於他ㄉ
-        require(msg.sender == upgradeToken.ownerOf(_tokenId),"you don't own this upgrade nft.");
+        require(msg.sender == upgradeToken.ownerOf(upgradeTokenId), "you don't own this upgrade nft.");
 
         // 判斷升級道具 level 是否跟 史萊姆的等級是相同 match
         require(upgradeToken.getUpgradeLevel(upgradeTokenId) == getSlimeLevel(_tokenId) ,"upgrade token level should have same level as your slime.");
@@ -108,24 +107,25 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
         slimeToken.doBurn(msg.sender, slimeTokenAmount);
     }
 
-    function claimRewards(uint256 slimeTokenAmount, uint256 taskLevel, bool getUpgradeTokenAmount) internal {
+    function claimRewards(uint256 slimeTokenAmount, uint256 taskLevel, bool ableToGetUpgradeNft) internal {
         // mint a upgrade token
         slimeToken.doMint(msg.sender, slimeTokenAmount);
 
-        if (getUpgradeTokenAmount) {
+        if (ableToGetUpgradeNft) {
             upgradeToken.doMint(msg.sender, upgradeToken.totalSupply(), taskLevel);
         }
     }
 
-    function goAdventrue(uint256 _tokenId) public {
-        require(canSlimeGoAdventrue(),"you can not let your slime go out.");
+    function goAdventrue() public {
+        require(balanceOf(msg.sender) > 0, "you need at least one slime to go adventure.");
+        require(canSlimeGoAdventure(),"slimes are already on the adventure.");
 
-        slimeTasks[msg.sender].ableToAdventure = false;
+        slimeTasks[msg.sender].isOnTheAdventure = true;
         slimeTasks[msg.sender].leaveAt = block.timestamp;
     }
 
-    function returnWithProfit(uint256 _tokenId) public {
-        require(!canSlimeGoAdventrue(),"your slimes are not going out.");
+    function returnWithRewards() public {
+        require(!canSlimeGoAdventure(),"your slimes are not going out.");
 
         require(block.timestamp > getSlimeLeaveAt() + MINIMUM_BLOCK_TIME, "slime will go out at least 30 minutes.");
 
@@ -139,14 +139,15 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     function attendMission(uint256 _missionId) public {
-        require(!mission.checkUserAttended(_missionId), "you already attend this mission.");
-        mission.attendMission(_missionId);
+        require(!mission.checkUserAttended(_missionId, msg.sender), "you already attend this mission.");
+        mission.attendMission(_missionId, msg.sender);
     }
 
     function completeMission(uint256 _missionId, uint256 _slimeTokenId) public {
-        (bool completed, uint256 rewardLevel) = mission.checkMissionCompleted(_missionId, _slimeTokenId);
-        require(completed);
-        // claimRewards();
+        (bool completed, uint256 rewardLevel) = mission.checkMissionCompleted(msg.sender, _missionId, _slimeTokenId);
+        require(completed, "mission is not completed.");
+        uint256 rewardAmount = (1 + rewardLevel) * 1 ether;
+        claimRewards(rewardAmount, rewardLevel, true);
     }
 
    
