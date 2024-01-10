@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol"; /
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; // ReentrancyGuard
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../../src/erc20/SlimeToken.sol"; // self made token
+import "../../ChainlinkVRF.sol"; // Chainlink Random Number
+import "../slime/Slime.sol";
 
 contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard {
     struct UpgradeType {
@@ -14,10 +16,12 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
         uint256 level;
     }
     address ADMIN;
+    // ChainlinkVRF chainlink;
     mapping(uint256 => UpgradeType) public upgradeList;
 
     constructor(address _addr) ERC721("Upgrade Sliime", "UPS") {
         ADMIN = _addr;
+        // chainlink = Slime(_addr).chainlink();
     }
 
     modifier only_admin {
@@ -40,6 +44,7 @@ contract UpgradeToken is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyG
      */
     function doMint(address _to, uint256 _tokenId, uint256 taskLevel) public nonReentrant only_admin {
         // use a random number alike to control the types
+        // uint256 randomNum = chainlink.getRandomNumber();
         uint256 randomTypes = ((gasleft() % 3) + 1) * (10 ** (taskLevel));
 
         _safeMint(_to, _tokenId);

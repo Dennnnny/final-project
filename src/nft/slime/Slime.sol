@@ -9,6 +9,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../../src/erc20/SlimeToken.sol"; // self made token
 import "../upgrade/Upgrade.sol"; // upgrade nft
 import "../../Mission.sol";
+import "../../ChainlinkVRF.sol"; // Chainlink Random Number
+
+import "forge-std/Test.sol";
+
 
 contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
     mapping(address => uint256) public mintTimes;
@@ -20,12 +24,13 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
     uint constant MINIMUM_BLOCK_TIME = 120; // 120 = 30min
     uint constant PROFIT_RATE = 1e15;
     uint constant MAX_PROFIT_PER_TIME = 1e18;
-
+    // ReturnMissionStatus 
     mapping(uint256 => mapping(address => bool)) public attendedMission;
 
     UpgradeToken public upgradeToken = new UpgradeToken(address(this));
     SlimeToken public slimeToken = new SlimeToken(address(this));
     Mission public mission = new Mission(address(this));
+    ChainlinkVRF public chainlink;// = new ChainlinkVRF(address(this));
 
     struct SlimeData {
         uint types;
@@ -38,12 +43,20 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
         uint leaveAt;
     }
 
+    enum ReturnMissionStatus {
+        Worst,
+        Good,
+        Great
+    }
+
     modifier isSlimeOwner(uint256 _tokenId) {
         require(ownerOf(_tokenId) == msg.sender,"you are not owner.");
         _;
     }
 
-    constructor() ERC721("A Slime NFT", "SlimeT") Ownable(msg.sender) {}
+    constructor(uint64 subId, address _coordinator) payable ERC721("A Slime NFT", "SlimeT") Ownable(msg.sender) {
+        chainlink = new ChainlinkVRF(address(this), subId, _coordinator);
+    }
 
     function mintOneSlime() public payable nonReentrant {
         slimeTokenId = totalSupply();
@@ -124,18 +137,52 @@ contract Slime is ERC721Enumerable, Ownable, ReentrancyGuard {
         slimeTasks[msg.sender].leaveAt = block.timestamp;
     }
 
+    function requestRandomNumber() public {
+        chainlink.requestRandomWords();
+    }
+
     function returnWithRewards() public {
         require(!canSlimeGoAdventure(),"your slimes are not going out.");
 
         require(block.timestamp > getSlimeLeaveAt() + MINIMUM_BLOCK_TIME, "slime will go out at least 30 minutes.");
 
+        requestRandomNumber();
+        uint256 randNum = chainlink.getRandomNumber(); 
+        ReturnMissionStatus returnMissionStatus = getMissionStatus(randNum);
+        
         uint256 times = block.timestamp - getSlimeLeaveAt();
-
         uint256 originProfit = times * PROFIT_RATE * balanceOf(msg.sender);
-
         uint256 profitAmount = originProfit > MAX_PROFIT_PER_TIME ? MAX_PROFIT_PER_TIME : originProfit;
 
-        slimeToken.doMint(msg.sender, profitAmount);
+        if(returnMissionStatus == ReturnMissionStatus.Worst) {
+            // it's a worst situation, so let user loss half of tokens...
+            uint256 oldBalance = slimeToken.balanceOf(msg.sender);
+            slimeToken.transferFrom(msg.sender, address(this), oldBalance / 2);
+        }
+
+        if(returnMissionStatus == ReturnMissionStatus.Good) {
+            // it's a good situation, user get rewards normally.
+            slimeToken.doMint(msg.sender, profitAmount);
+        }
+
+        if(returnMissionStatus == ReturnMissionStatus.Great) {
+            // it a great job, so there are more rewards.
+            slimeToken.doMint(msg.sender, profitAmount);
+            upgradeToken.doMint(msg.sender, upgradeToken.totalSupply(), randNum % 9);
+        }
+
+    }
+
+    function getMissionStatus(uint256 randNumber) view public returns(ReturnMissionStatus) {
+        uint256 result = randNumber % 3;
+
+        if(result == 0){
+            return ReturnMissionStatus.Worst;
+        }else if (result == 1){
+            return ReturnMissionStatus.Good;
+        }else{
+            return ReturnMissionStatus.Great;
+        }
     }
 
     function attendMission(uint256 _missionId) public {
