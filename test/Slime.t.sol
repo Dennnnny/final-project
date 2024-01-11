@@ -5,20 +5,33 @@ import "forge-std/Test.sol";
 import "../src/nft/slime/Slime.sol";
 import "../src/erc20/SlimeToken.sol";
 import "../src/Mission.sol";
+import "chainlink/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
 
 contract SlimeTest is Test {
     Slime slime;
     UpgradeToken upgradeToken;
     SlimeToken slimeToken;
     Mission mission;
+    VRFCoordinatorV2Mock mock;
     address user = makeAddr("user");
     address mintedUser = makeAddr("mintedUser");
     address anotherUser = makeAddr("anotherUser");
     address admin;
+    address owner = makeAddr("owner");
 
     function setUp() public {
-        slime = new Slime();
+        vm.prank(address(this));
+        mock = new VRFCoordinatorV2Mock(100000000000000000,1000000000);
+        vm.prank(address(this));
+        (uint64 subId) = mock.createSubscription();
+        
+        slime = new Slime(subId, address(mock));
         admin = address(slime);
+
+        vm.prank(address(this));
+        mock.addConsumer(subId, address(slime.chainlink()));
+        mock.fundSubscription(subId, 100000 ether);
+
         upgradeToken = slime.upgradeToken();
         slimeToken = slime.slimeToken();
         mission = slime.mission();
@@ -154,7 +167,8 @@ contract SlimeTest is Test {
         vm.expectRevert("your slimes are not going out.");
         slime.returnWithRewards();
 
-        uint256 postBalance = slime.slimeToken().balanceOf(user);
+        uint256 postSlimeTokenBalance = slimeToken.balanceOf(user);
+        uint256 postUpgradeTokenBalance = upgradeToken.balanceOf(user);
         mintSlimeToUser();
         vm.startPrank(user);
         slime.goAdventrue();
@@ -163,10 +177,74 @@ contract SlimeTest is Test {
         slime.returnWithRewards();
 
         vm.warp(block.timestamp + 1000);
+
+        slime.requestRandomNumber();
+        mock.fulfillRandomWords(1, address(slime.chainlink()));
+        // in test case this will be great
+
         slime.returnWithRewards();
-        assertGt( slime.slimeToken().balanceOf(user), postBalance);
+        assertGt( slimeToken.balanceOf(user), postSlimeTokenBalance);
+        assertGt( upgradeToken.balanceOf(user), postUpgradeTokenBalance);
         vm.stopPrank();
     }
+
+    function testReturnRewardWithWorstSituation() public {
+
+        vm.prank(user);
+        (bool success) = slimeToken.approve(address(slime), 10 ether);
+        deal(address(slimeToken), user, 10 ether);
+        uint256 postSlimeTokenBalance = slimeToken.balanceOf(user);
+
+        mintSlimeToUser();
+        vm.startPrank(user);
+        slime.goAdventrue();
+
+        vm.expectRevert("slime will go out at least 30 minutes.");
+        slime.returnWithRewards();
+
+        vm.warp(block.timestamp + 1000);
+
+        slime.requestRandomNumber();
+        mock.fulfillRandomWords(1, address(slime.chainlink()));
+        slime.requestRandomNumber();
+        mock.fulfillRandomWords(2, address(slime.chainlink()));
+        // in test case this will be worst
+
+        slime.returnWithRewards();
+        assertLt( slimeToken.balanceOf(user), postSlimeTokenBalance);
+        vm.stopPrank();
+    }
+
+    function testReturnRewardWithGoodSituation() public {
+        uint256 postSlimeTokenBalance = slimeToken.balanceOf(user);
+        uint256 postUpgradeTokenBalance = upgradeToken.balanceOf(user);
+
+        mintSlimeToUser();
+        vm.startPrank(user);
+        slime.goAdventrue();
+
+        vm.expectRevert("slime will go out at least 30 minutes.");
+        slime.returnWithRewards();
+
+        vm.warp(block.timestamp + 1000);
+
+        slime.requestRandomNumber();
+        slime.requestRandomNumber();
+        slime.requestRandomNumber();
+        mock.fulfillRandomWords(3, address(slime.chainlink()));
+        // in test case this will be gooood
+
+        slime.returnWithRewards();
+        assertGt( slimeToken.balanceOf(user), postSlimeTokenBalance);
+        assertEq( upgradeToken.balanceOf(user), postUpgradeTokenBalance);
+        vm.stopPrank();
+
+    }
+
+    function testRequestRandomNumber() public {
+        slime.requestRandomNumber();
+    }
+    
 
     function testAttendMission() public {
         vm.startPrank(user);

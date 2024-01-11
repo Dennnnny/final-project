@@ -4,14 +4,22 @@ pragma solidity ^0.8.19;
 import "forge-std/Test.sol";
 import "../src/Mission.sol";
 import "../src/nft/slime/Slime.sol";
+import "chainlink/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
 
 contract MissionTest is Test {
     Mission mission;
-    Slime slime = new Slime();
+    Slime slime; 
+    VRFCoordinatorV2Mock mock;
 
     address user = makeAddr("user");
 
     function setUp() public {
+        vm.prank(address(this));
+        mock = new VRFCoordinatorV2Mock(100000000000000000,1000000000);
+        vm.prank(address(this));
+        (uint64 subId) = mock.createSubscription();
+
+        slime = new Slime(subId, address(mock));
         mission = new Mission(address(slime));
     }
 
